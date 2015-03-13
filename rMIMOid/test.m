@@ -27,11 +27,11 @@ x = zeros(size(A,1),N);
 y = zeros(size(C,1),N);
 
 rng(1);
-u = rand(size(B,2),N);
+u = randn(size(B,2),N);
 
 rng(2);
-w = 0*randn(size(W,2),N);
-v = 0*randn(size(V,2),N);
+w = randn(size(W,2),N);
+v = randn(size(V,2),N);
 
 
 for k = 1:N-1

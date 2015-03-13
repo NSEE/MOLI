@@ -1,11 +1,11 @@
-function [a,b,c,P] = rmoli(y, u, l, alpha)
+function [a,b,c,P,theta_cell] = rmoli(y, u, l, alpha)
 % ---------------------------------------------------------------------------------------
 % Function to recursively estimate state-space multivariable model parameters. 
 %
 % Author: Rodrigo A. Romano - Mar/2015
 %
 % ---------------------------------------------------------------------------------------
-% function theta = rmoli(y, u, l, alpha)
+% function [a,b,c,P,theta] = rmoli(y, u, l, alpha)
 %
 % ---------------------------------------------------------------------------------------
 % Inputs:
@@ -17,10 +17,13 @@ function [a,b,c,P] = rmoli(y, u, l, alpha)
 %
 % Outputs:
 %
-% - State space model matrices a, b and c
-
+% - State space model matrices a, b and c (of the last iteration)
+% - P is a cell array with de covariance matrices relative to the parameter
+% estimation. P{i,k} stores the covariance relative to the ith output computed in
+% iteration k
+% - The parameter vector relative to the ith output computed in iteration k is
+% provided through theta_cell{i,k}.
 % ---------------------------------------------------------------------------------------
-% Rev0 - Mar/2015: .
 
 [N, p] = size(y);
 [~, m] = size(u);
@@ -29,6 +32,8 @@ n = sum(l);
 m_plus_p_times_n_ = (m+p)*n_;
 
 %% Verification of the input arguments
+
+if(nargin < 4), error('too few input arguments...'); end
 
 if(nargin < 4), error('too few input arguments...'); end
 
@@ -101,13 +106,15 @@ xi_k = zeros(m_plus_p_times_n_,1);
 P = cell(p,N);	% Covariance matrices
 R1 = cell(p,1);	% Parameter covariance matrices
 R2 = cell(p,1);	% Output variance
-theta = cell(p,N);	% Parameter cell array
+theta_cell = cell(p,N);
+theta = cell(p);	% Parameter cell arrays
 
 for i = 1:p
 	P{i,ini-1} = eye((m+p)*l(i) + i - 1)*10^6;
-	theta{i,ini-1} = zeros((m+p)*l(i) + i - 1,1);
+	theta_cell{i,ini-1} = zeros((m+p)*l(i) + i - 1,1);
+	theta{i} = theta_cell{i,ini-1};
 	R1{i} = zeros((m+p)*l(i) + i - 1); %eye((m+p)*l(i) + i - 1);
-	R2{i} = 1e-9;
+	R2{i} = 1;
 end
 	
 for k = ini:N
@@ -125,12 +132,20 @@ for k = ini:N
 		
 		aux = phi_i_k'*P{i,k-1}*phi_i_k + R2{i};
 		K_k = (P{i,k-1}*phi_i_k)/aux;
-		theta{i,k} = theta{i,k-1} + K_k*(y(k,i)-phi_i_k'*theta{i,k-1});
+		theta{i} = theta{i} + K_k*(y(k,i)-phi_i_k'*theta{i});
 		P{i,k} = P{i,k-1} - (P{i,k-1}*(phi_i_k*phi_i_k')*P{i,k-1})/aux + R1{i};
+		
+		theta_cell{i,k} = theta{i};
 	end
+	
+	[a,b,c] = theta2abc(theta,l,m,A_D,C_D);
 end
 
 %% Computation of the state space model matrices
+function [a,b,c] = theta2abc(theta,l,m,A_D,C_D)
+
+p = length(l);
+n = sum(l);
 
 D = zeros(n,p);
 B = zeros(n,m);
@@ -139,17 +154,17 @@ G = zeros(p);
 for jp = 1:p
     ct = 0;
     for i = 1:p
-        D(ct+1:ct+l(i),jp) = theta{i,k}(1 + l(i)*(jp-1):l(i)*jp);
+        D(ct+1:ct+l(i),jp) = theta{i}(1 + l(i)*(jp-1):l(i)*jp);
         ct = ct + l(i);
     end
     
-    if(jp > 1), G(jp,1:jp-1) = theta{jp,k}((m+p)*l(jp)+1:end); end
+    if(jp > 1), G(jp,1:jp-1) = theta{jp}((m+p)*l(jp)+1:end); end
 end
 
 for jm = 1:m
     ct = 0;
     for i = 1:p
-        B(ct+1:ct+l(i),jm) = theta{i,k}(1 + l(i)*p + l(i)*(jm-1):l(i)*(p+jm));
+        B(ct+1:ct+l(i),jm) = theta{i}(1 + l(i)*p + l(i)*(jm-1):l(i)*(p+jm));
         ct = ct + l(i);
     end
 end
