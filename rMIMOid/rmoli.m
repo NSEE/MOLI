@@ -1,11 +1,11 @@
-function [a,b,c,P,theta_cell] = rmoli(y, u, l, alpha)
+function [a,b,c,P,theta_cell,A_D,C_D] = rmoli(y, u, l, alpha)
 % ---------------------------------------------------------------------------------------
 % Function to recursively estimate state-space multivariable model parameters. 
 %
 % Author: Rodrigo A. Romano - Mar/2015
 %
 % ---------------------------------------------------------------------------------------
-% function [a,b,c,P,theta] = rmoli(y, u, l, alpha)
+% function [a,b,c,P,theta,A_D,C_D] = rmoli(y, u, l, alpha)
 %
 % ---------------------------------------------------------------------------------------
 % Inputs:
@@ -23,6 +23,7 @@ function [a,b,c,P,theta_cell] = rmoli(y, u, l, alpha)
 % iteration k
 % - The parameter vector relative to the ith output computed in iteration k is
 % provided through theta_cell{i,k}.
+% - Design model matrices: A_D and C_D
 % ---------------------------------------------------------------------------------------
 
 [N, p] = size(y);
@@ -113,8 +114,8 @@ for i = 1:p
 	P{i,ini-1} = eye((m+p)*l(i) + i - 1)*10^6;
 	theta_cell{i,ini-1} = zeros((m+p)*l(i) + i - 1,1);
 	theta{i} = theta_cell{i,ini-1};
-	R1{i} = zeros((m+p)*l(i) + i - 1); %eye((m+p)*l(i) + i - 1);
-	R2{i} = 1;
+	R1{i} = zeros((m+p)*l(i) + i - 1); %1e-3*eye((m+p)*l(i) + i - 1);%
+	R2{i} = 1e-1;
 end
 	
 for k = ini:N
@@ -169,7 +170,7 @@ for jm = 1:m
     end
 end
 
-c = (eye(p) - G)\C_D;%((eye(p) - G)^-1)*C_D;
+c = (eye(p) - G)\C_D;
 b = B;
 a = A_D + D*c;
 
