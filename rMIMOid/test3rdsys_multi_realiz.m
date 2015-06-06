@@ -148,7 +148,7 @@ for i=1:length(A)
 		'-.','color',[.3 .3 .3],'Linewidth',1);
 
 	set(gca,'Fontsize',12);
-	xlim([26,100])
+	xlim([1,25])
 	grid on;
 end
 

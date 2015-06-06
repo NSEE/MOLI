@@ -108,7 +108,7 @@ P = cell(p,N);	% Covariance matrices
 R1 = cell(p,1);	% Parameter covariance matrices
 R2 = cell(p,1);	% Output variance
 theta_cell = cell(p,N);
-theta = cell(p);	% Parameter cell arrays
+theta = cell(p,1);	% Parameter cell arrays
 
 for i = 1:p
 	P{i,ini-1} = eye((m+p)*l(i) + i - 1)*10^6;
@@ -135,10 +135,9 @@ for k = ini:N
 		K_k = (P{i,k-1}*phi_i_k)/aux;
 		theta{i} = theta{i} + K_k*(y(k,i)-phi_i_k'*theta{i});
 		P{i,k} = P{i,k-1} - (P{i,k-1}*(phi_i_k*phi_i_k')*P{i,k-1})/aux + R1{i};
-		
-		theta_cell{i,k} = theta{i};
 	end
 	
+	theta_cell(:,k) = theta;
 	[a,b,c] = theta2abc(theta,l,m,A_D,C_D);
 end
 

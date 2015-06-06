@@ -32,7 +32,7 @@ N = 103;
 x = zeros(size(A,1),N);
 y = zeros(size(C,1),N);
 
-rng(3);
+rng(15);
 u = randn(size(B,2),N);
 w = randn(size(W,2),N);
 v = randn(size(V,2),N);
@@ -50,20 +50,34 @@ u = u';
 
 l = [2,1];	%list of observability indices
 
+tic
 [a,b,c] = moli(y, u, l, poly([0 0]));
 ssx = ss(a,b,c,zeros(2), 1);
+toc
 
-[a,b,c,P,theta_cell,A_D,C_D] = rmoli(y, u, l, poly([0 0]));
+tic
+[a,b,c,P,theta_cell,A_D,C_D] = rmoli(y, u, l, poly([0.15 0.15]));
 ssr = ss(a,b,c,zeros(2), 1);
+toc
+
+tic
+[theta_cell_zoft,A_D_cell,C_D_cell,Pzoft] = rmoli_zoft(y, u, l, 1);
+toc
 
 rmoli_eig = zeros(length(A),N);
+rmolizoft_eig = zeros(length(A),N);
 theta = cell(size(C,1));
 detP = zeros(N,1);
+detPzoft = zeros(N,1);
 
-for k=1:N
-	for i = 1:size(C,1), theta{i} = theta_cell{i,k}; end
+
+for k=2:N
+	theta = theta_cell(:,k);
 	rmoli_eig(:,k) = sort(eig(theta2abc(theta,l,size(B,2),A_D,C_D)));
+	rmolizoft_eig(:,k) = sort(eig(theta2abc(theta_cell_zoft(:,k),l,size(B,2),...
+		A_D_cell{k},C_D_cell{k})));
 	detP(k) = det(blkdiag(P{1,k},P{2,k}));
+	detPzoft(k) = det(blkdiag(Pzoft{end,1,k},Pzoft{end,2,k}));
 end
 
 % Recursive Subspace Identification parameters
@@ -76,8 +90,11 @@ rlsopts = struct('ireg',[ireg ireg ireg],'lambda',[lambda lambda lambda],'reg',0
 
 % Start Recursive Subspace Identification
 idopts = struct('method','varx','weight',1,'ltv',1,'noD',1,'past',0,'Kalm',0);
+% 'Kalm' = 1 demands more computation effort
 %default: struct('method','varx','weight',0,'ltv',0,'noD',0,'past',0,'Kalm',0);
+tic
 [Ak,Bk,Ck,Dk,Kk,err1,eigA1,dampA1] = rpbsid(u,y,f,p,n,[],idopts,rlsopts);
+toc
 sspbsid = ss(Ak,Bk,Ck,Dk, 1);
 
 %% Report results
@@ -91,20 +108,22 @@ figure(1);
 for i=1:length(A)
 	subplot(3,1,i)
 	plot((1:N)', real_poles(:,i),'-k','Linewidth',1.1); hold on;
-	plot((1:N)', real(moli_poles(:,i)),':','color',[.3 .3 .3],'Linewidth',3);
+	plot((1:N)', real(rmolizoft_eig(i,:))','r--','Linewidth',1.6);%,'color',[.3 .3 .3],'Linewidth',3);
 	plot((1:N)', real(eigA1(i,:))','-.','color',[.6 .6 .6],'Linewidth',1.6);
-	plot((1:N)', real(rmoli_eig(i,:))','--','color',[.3 .3 .3],'Linewidth',1.6);
+	plot((1:N)', real(rmoli_eig(i,:))','x:','color',[0 0 1],'Linewidth',1.6);
 	set(gca,'Fontsize',12);
 	xlim([0,N])
 	grid on;
 end
 
-legend('actual','batch MOLI','rPBSID','rMOLI','Orientation','Horizontal',4);
+legend('actual','rMOLI-ZOFT','rPBSID','rMOLI','Orientation','Horizontal',4);
 xlabel('Samples');
 
 % ---------
 figure(2)
-semilogy(detP,'--','color',[.3 .3 .3],'Linewidth',1.4);
+semilogy(detP,':','color',[.3 .3 .3],'Linewidth',1.6);
+hold on;
+semilogy(detPzoft,'r--','Linewidth',1.6);
 set(gca,'Fontsize',12);
 ylabel('det({\it P_k})');
 xlabel('Samples');

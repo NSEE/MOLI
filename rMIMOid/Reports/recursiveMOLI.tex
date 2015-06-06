@@ -1,0 +1,223 @@
+\documentclass{tufte-handout}
+
+\usepackage{amsmath}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+
+% Set up the images/graphics package
+\usepackage{graphicx}
+\usepackage{MnSymbol}
+
+\setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
+\graphicspath{{graphics/}}
+
+\title[Recursive identification of MIMO systems using matchable--observable linear models]{Recursive identification of multivariable systems using matchable--observable linear models}
+\author[R Romano]{Rodrigo Alvite Romano and Felipe Pait}
+\date{}  % if the \date{} command is left out, the current date will be used
+
+% The following package makes prettier tables.  We're all about the bling!
+\usepackage{booktabs}
+
+% The units package provides nice, non-stacked fractions and better spacing
+% for units.
+\usepackage{units}
+
+\newenvironment{remark}{\mbox{} \newline \noindent \textbf{Remark:}\slshape \em}{\mbox{} \newline}
+\def\FAPESP{\textsc{fapesp}}
+\def\CNPq{\textsc{cnp}q}
+\def\d{\mathrm{d}}
+\def\qed{\hfill\rule{.1in}{.1in}}
+\def\e{\mathrm{e}}
+\def\dext{\mathrm{d}}
+\def\R{\mathbb{R}}
+\def\ricc{\mathcal{R}icc}
+\pagenumbering{arabic}
+\def\tr{{\rm trace \, }}
+\def\D{\mathrm{D}}
+\def\Lie{\mathcal{L}}
+
+\def\X{\mathcal{X}}
+\def\U{\mathcal{U}}
+\def\V{\mathcal{V}}
+\def\Y{\mathcal{Y}}
+\def\Z{\mathcal{Z}}
+\def\W{\mathcal{W}}
+\def\M{\mathcal{M}}
+
+\def\metric{\langle\enspace,\enspace\rangle}
+
+\DeclareMathOperator{\adj}{adj}
+\DeclareMathOperator{\blkdiag}{block\ diagonal}
+\DeclareMathOperator{\stack}{vec}
+\newcommand{\argmin}[1]{\underset{#1}{\operatorname{arg}\,\operatorname{min}}\;}
+
+
+\usepackage{amsthm}
+\newtheorem{theorem}{Theorem}%[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{proposition}[theorem]{Proposition}
+
+% The fancyvrb package lets us customize the formatting of verbatim
+% environments.  We use a slightly smaller font.
+\usepackage{fancyvrb}
+\fvset{fontsize=\normalsize}
+
+% Small sections of multiple columns
+\usepackage{multicol}
+
+% Provides paragraphs of dummy text
+\usepackage{lipsum}
+
+% These commands are used to pretty-print LaTeX commands
+\newcommand{\doccmd}[1]{\texttt{\textbackslash#1}}% command name -- adds backslash automatically
+\newcommand{\docopt}[1]{\ensuremath{\langle}\textrm{\textit{#1}}\ensuremath{\rangle}}% optional command argument
+\newcommand{\docarg}[1]{\textrm{\textit{#1}}}% (required) command argument
+\newenvironment{docspec}{\begin{quote}\noindent}{\end{quote}}% command specification environment
+\newcommand{\docenv}[1]{\textsf{#1}}% environment name
+\newcommand{\docpkg}[1]{\texttt{#1}}% package name
+\newcommand{\doccls}[1]{\texttt{#1}}% document class name
+\newcommand{\docclsopt}[1]{\texttt{#1}}% document class option name
+
+\begin{document}
+
+\maketitle% this prints the handout title, author, and date
+
+%\begin{abstract}
+
+\section{Preamble}
+%\newthought{Abc} . 
+
+This is a report about recursive parameter estimation using the parameterization proposed in the context of adaptive control theory.
+
+\section{Matchable--observable parameterizations}
+
+Any strictly proper linear system of McMillan degree $n_x$ with $n_u$ inputs ($u_k \in \R^{n_u}$) and $n_y$ outputs ($y_k \in \R^{n_y}$) can be represented by the following state--space model structure
+\begin{align}
+x_{k+1} & = \left(A + D(\theta)\left(I-G(\theta)\right)^{-1}C\right)x_{k} + B(\theta) u_{k} \label{eq:stateeq_designm} \\
+y_{k} & = \left(I-G(\theta)\right)^{-1}C x_{k} \text{,} \label{eq:outputeq_designm}
+\end{align}
+%
+where $\theta$ denotes the model parameters, $I$ is an identity matrix of suitable dimensions, $(C,A)$ is an arbitrary observable pair, and $A$ is Hurwitz. The parameter matrix $G(\theta) \in \R^{n_y \times n_y}$ is strictly lower triangular. The other parameter matrices $D(\theta)$ and $B(\theta)$ take values in $\R^{n_x \times n_y}$ and $\R^{n_x \times n_u}$, respectively. This parameterization proposed in~\cite{Morse:1994} in the context of adaptive control have the properties of observability, match-–point controllability, and matchability. As a consequence, no undesired pole-–zero cancellations can appear, the number of model parameters is reduced if compared to fully--parameterized models, and linear least–-squares parameter estimation methods is applicable in off--line batch identification~\cite{Romano:2011} or in a recursive context. Our aim is to present an algorithm based on the parameterization \eqref{eq:stateeq_designm}--\eqref{eq:outputeq_designm} suitable for real--time applications, in which the model parameters must be updated recursively.
+
+Now, suppose that the parameter--independent pair $(C,A)$ is given by
+\begin{align}
+C & = \blkdiag \left\{ C_1, C_2, \ldots, C_{n_y} \right\} \label{eq:C} \\ 
+A & = \blkdiag \left\{ A_1, A_2, \ldots, A_{n_y} \right\} \text{,} \label{eq:A}
+\end{align}
+where the pairs $(C_i, A_i)$ are constructed such that
+\begin{enumerate}
+\item Given a list of observability indices $$l = \left\{ n_{1}, \ldots, n_{n_y} \right\} \text{,}$$ 
+{so that $n_{1} + \ldots + n_{n_y} = n_x$,} 
+choose an arbitrary stable monic polynomial $\alpha(q)$ of degree $\underline{n}=\max(l)$, such that, for $i=\{1,\dots,n_y\}$, $\alpha(q)$ has a real monic factor $\lambda_i(q)$ of degree $n_i$. The symbol $q$ denotes the shift operator.
+\item The $n_i$--dimensional observable pairs $\left(C_i,A_i\right)$ are composed of matrices $A_i$ in right companion form, whose characteristic polynomial is $\lambda_i(q)$, and $C_i = \begin{bmatrix} 0 & \cdots & 0 & 1 \end{bmatrix}$.
+\end{enumerate}
+
+As detailed in a previous work~\cite{Romano:2015}, such choice for $(C,A)$ is particularly compelling for system identification as it enables us to write a predictor for the outputs of \eqref{eq:stateeq_designm}--\eqref{eq:outputeq_designm} in regression form, such that the entries of the parameter matrices $B(\theta)$, $D(\theta)$ and $G(\theta)$ appear linearly, and the information vector $\varphi$ is essentially composed of delayed versions of filtered input--output samples. This result is formally presented as follows.
+%
+\begin{proposition}
+Let
+\begin{align}
+\xi_k = & \left[%
+\begin{matrix} y_{1,k-\underline{n}}^f & \cdots & y_{1,k-1}^f & \cdots & y_{n_y,k-\underline{n}}^f & \cdots & y_{n_y,k-1}^f \end{matrix} \right. \nonumber \\
+& \left. \begin{matrix} u_{1,k-\underline{n}}^f & \cdots & u_{1,k-1}^f & \cdots & u_{n_u,k-\underline{n}}^f & \cdots & u_{n_u,k-1}^f \end{matrix} \right]^T
+\text{,} \label{eq:alternative_xi}
+\end{align}
+where
+\begin{align*}
+y_{i,k}^f & = \frac{q^{\underline{n}}}{\alpha(q)} y_{i,k} & \text{, for } i = \{1,\dots,n_y\} \\
+u_{j,k}^f & = \frac{q^{\underline{n}}}{\alpha(q)} u_{j,k} & \text{, for } j = \{1,\dots,n_u\} \text{,}
+\end{align*}
+are filtered versions of the $i$th output and input sequences at instant $k$, respectively.
+%
+Furthermore, for each $i \in \{1, \ldots, n_y\}$, introduce
+\begin{equation*}
+\mathcal{M}_i = \blkdiag \big\{ \underbrace{M_i, \ldots, M_i}_{n_u + n_y \text{ \normalfont times}} \big\}, %\label{eq:mathcal_Mi}
+\end{equation*}
+where $M_i \in \R^{\underline{n} \times n_i} $ is a Toeplitz matrix of the form
+\begin{equation*}
+M_i = \begin{bmatrix}
+\kappa_{i,1}	& 0 			& \cdots	& 0	\\
+\vdots			& \kappa_{i,1} 	&				& \vdots		\\
+\kappa_{i,\underline{n}-n_i}	&	\vdots &	\ddots & 0 \\
+1	& \kappa_{i,\underline{n}-n_i} & & \kappa_{i,1} \\
+0 & 1 & \ddots & \vdots \\
+\vdots & \ddots & \ddots & \kappa_{i,\underline{n}-n_i} \\
+0 & \cdots & 0 & 1
+\end{bmatrix},
+\end{equation*}
+%
+%\[ m_{i,1} = \begin{bmatrix} \kappa_{i,1} & \cdots & \kappa_{i,\underline{n}-n_i} & 1 & 0 & \cdots &  0\end{bmatrix}^{T} \text{.} \]
+whose entries are given by the coefficients of the polynomial
+%
+\begin{equation*} % \label{eq:kappai}
+\kappa_i(q) = \dfrac{\alpha(q)}{\lambda_i(q)} = q^{\underline{n}-n_i} + \kappa_{i,\underline{n}-n_i}q^{\underline{n}-n_i-1} + \ldots + \kappa_{i,2}q + \kappa_{i,1} \text{.}
+\end{equation*}
+%
+Then, a predictor for the $i$th output at instant $k$, namely $\hat{y}_{i,k}$, based on \eqref{eq:stateeq_designm}--\eqref{eq:outputeq_designm} can be written as
+\begin{equation} \label{eq:linear_reg}
+\hat{y}_{i,k} = \varphi_{i,k}^T \theta_i \text{,} 
+\end{equation}
+where the regressor or information vector relative to the $i$th output is
+\begin{equation*} %\label{eq:info_vetors}
+\varphi_{i,k} = \left\{ \begin{array}{ll}
+\mathcal{M}_1^T \xi_k \text{,} & \text{for } i = 1\\
+\begin{bmatrix} \xi_k^T \mathcal{M}_i & y_{1,k} & \cdots & y_{i-1,k}\end{bmatrix}^T \text{,} & \text{for } i \neq 1
+\end{array} \right. \text{,}
+\end{equation*}
+%
+ and the respective parameter vector is
+\setlength{\arraycolsep}{3.8pt}
+\begin{equation*} %\label{eq:param_vetors}
+\theta_i = \left\{ \begin{array}{ll}
+\! \stack \{ \begin{bmatrix} D_{i}(\theta) & B_{i}(\theta) \end{bmatrix} \} \text{,} & \text{for } i = 1\\
+\! \begin{bmatrix} \stack \{ \begin{bmatrix} D_{i}(\theta) & B_{i}(\theta) \end{bmatrix} \}^T & g_{i1} & \cdots & g_{i(i-1)} \end{bmatrix}^T \text{,} & \text{for } i \neq 1
+\end{array} \right. \text{,}
+\end{equation*}
+\setlength{\arraycolsep}{5pt}
+%
+ where $\begin{bmatrix} D_{i}(\theta) & B_{i}(\theta) \end{bmatrix}$ is the $i$th submatrix of $\begin{bmatrix} D(\theta) & B(\theta) \end{bmatrix}$, the latter being partitioned according to the list of observability indices, the operator $\stack \{ \cdot \}$ stacks the columns of the argument on top of each
+other, and the symbols $g_{ij}$ denote the nonzero elements of the matrix $G(\theta)$.
+
+
+\end{proposition}
+
+\begin{proof}
+The proof follows directly from Lemmas 1 and 2 in~\cite{Romano:2015}.
+\end{proof}
+
+In fact, given the polynomial $\alpha(q)$, the regression form \eqref{eq:linear_reg} is linear in $\theta_i$. Therefore, the parameters of \eqref{eq:stateeq_designm}--\eqref{eq:outputeq_designm} can be efficiently estimated using linear least--squares methods.
+
+\begin{remark}
+The roots of $\alpha(q)$ determine the poles of the low--pass filter used to generate $\xi_k$ (which, in turn, is part of the regressor vector) from input-–output data. Hence, they are variables that can be designed to remove high frequency disturbances that we do not want to include in the modeling. In other words, fixing the polynomial $\alpha(q)$ is equivalent to specifying a prefilter without taking into account the process dynamics.
+\end{remark}
+
+\section{Recursive parameter estimation}
+
+The state--space description \eqref{eq:stateeq_designm}--\eqref{eq:outputeq_designm} can be straightforwardly extended to the time--varying context by considering the following parameter variation model
+\begin{align}
+\theta_{i,k} & = \theta_{i,k-1} + w_{i,k} \label{eq:parameter_variation_model} \\
+y_{i,k} & = \varphi_{i,k}^T \theta_{i,k-1} + v_{i,k} \text{,} \label{eq:lpv_model_output_eq}
+\end{align}
+where $\theta_{i,k} \in \R^{n_i(n_u + n_y)}$ is the parameter vector relative to the $i$th output at instant $k$, whose change is driven by a zero--mean Gaussian process $w_{i,k}$ with nonnegative definite covariance matrix $Q_i$. The measurement noise $v_{i,k}$ is assumed to be a white Gaussian process with variance $R_i$. The random-walk parameter variation model \eqref{eq:parameter_variation_model}--\eqref{eq:lpv_model_output_eq} is the most common parameter--varying description. For other possible choices, the reader is refereed to \cite{Ljung:1990}.
+
+Applying a Kalman filter to \eqref{eq:parameter_variation_model}--\eqref{eq:lpv_model_output_eq} provides the set of recursive relations (see Lemma 2.2 in \cite{Ljung:1983})
+\begin{align}
+\hat{\theta}_{i,k} & = \hat{\theta}_{i,k-1} + K_{i,k} \left( y_{i,k} - \varphi_{i,k}^T \hat{\theta}_{i,k-1}  \right) \label{eq:theta_update} \\
+K_{i,k} & = \frac{P_{i,k-1}\varphi_{i,k}}{R_i + \varphi_{i,k}^T P_{i,k-1} \varphi_{i,k}}\label{eq:Kalman_gain} \\
+P_{i,k} & = P_{i,k-1} - \frac{P_{i,k-1} \varphi_{i,k} \varphi_{i,k}^T P_{i,k-1}}{R_i + \varphi_{i,k}^T P_{i,k-1} \varphi_{i,k}} + Q_i \text{.} \label{eq:P_update}
+\end{align}
+
+Therefore, ...
+
+% Recursively estimate $\theta_{i,k}$ in
+% A sequence of $n_y$ Kalman filters for single--output systems
+
+%\let\clearpage\relax
+%\input{direta-cba14}
+
+\nobibliography{/Users/rromano/Dropbox/EEM/idMIMO-FAPESP/Papers/MOLI-ZOFT/MIMOsysid,rSYSID}
+%\nobibliography{/Users/Rodrigo/Dropbox/EEM/idMIMO-FAPESP/Papers/MOLI-ZOFT/MIMOsysid,rSYSID}
+\bibliographystyle{plainnat}
+
+\end{document}
