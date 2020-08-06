@@ -1,6 +1,6 @@
-# MOLI-ZOFT
+# MOLI
 
-Matchable-Observable Linear Identification with Zero-order Oracle Filter Tuning.
+Matchable-Observable Linear Identification.
 
 For details on the method, refer to
 - https://ieeexplore.ieee.org/document/7552434 (General concept)
